@@ -3076,6 +3076,33 @@
       </div>
 
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.errorWhitelist') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.errorWhitelistDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="error-whitelist-toggle"
+            @click="errorWhitelistEnabled = !errorWhitelistEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              errorWhitelistEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                errorWhitelistEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <!-- Mixed Scheduling (only for antigravity accounts) -->
         <div v-if="form.platform === 'antigravity'" class="flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
@@ -3777,6 +3804,7 @@ const applyGrokOAuthUpstreamConfig = (credentials: Record<string, unknown>) => {
 }
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
+const errorWhitelistEnabled = ref(false)
 const openaiPassthroughEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const openAILongContextBillingTouched = ref(false)
@@ -4570,6 +4598,13 @@ const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<v
 }
 
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
+  const extra = { ...((payload.extra as Record<string, unknown> | undefined) || {}) }
+  if (errorWhitelistEnabled.value) {
+    extra.error_whitelist = true
+  } else {
+    delete extra.error_whitelist
+  }
+  payload.extra = Object.keys(extra).length > 0 ? extra : undefined
   submitting.value = true
   try {
     const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
@@ -4655,6 +4690,7 @@ const resetForm = () => {
   grokOAuthBaseUrl.value = ''
   interceptWarmupRequests.value = false
   autoPauseOnExpired.value = true
+  errorWhitelistEnabled.value = false
   openaiPassthroughEnabled.value = false
   openAILongContextBillingEnabled.value = false
   openAILongContextBillingTouched.value = false

@@ -2004,6 +2004,33 @@
         </div>
       </div>
 
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.errorWhitelist') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.errorWhitelistDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="error-whitelist-toggle"
+            @click="errorWhitelistEnabled = !errorWhitelistEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              errorWhitelistEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                errorWhitelistEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
       <div
         v-if="account?.platform === 'openai'"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
@@ -2786,6 +2813,7 @@ const grokClientToolCacheEnabled = ref(true)
 
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(false)
+const errorWhitelistEnabled = ref(false)
 const autoPause5hThreshold = ref<number | null>(null)
 const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
@@ -3252,6 +3280,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   const credentials = newAccount.credentials as Record<string, unknown> | undefined
   interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
   autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
+  errorWhitelistEnabled.value = newAccount.extra?.error_whitelist === true
   editVertexProjectId.value = ''
   editVertexClientEmail.value = ''
   editVertexLocation.value = 'us-central1'
@@ -4050,6 +4079,12 @@ const handleSubmit = async () => {
       updatePayload.load_factor = 0
     }
     updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
+    const errorWhitelistExtra = {
+      ...(((updatePayload.extra as Record<string, unknown> | undefined) ||
+        (props.account.extra as Record<string, unknown> | undefined)) || {})
+    }
+    errorWhitelistExtra.error_whitelist = errorWhitelistEnabled.value
+    updatePayload.extra = errorWhitelistExtra
 
     // For apikey type, handle credentials update
     if (props.account.type === 'apikey') {
