@@ -79,6 +79,46 @@ func newBillingServiceForRPM(t *testing.T, cache UserRPMCache, rateRepo UserGrou
 	return svc
 }
 
+func TestBillingCacheService_CheckBillingEligibilityWithoutRPM(t *testing.T) {
+	billingCache := &balanceEligibilityCacheStub{balance: 1}
+	rpmCache := &userRPMCacheStub{}
+	cfg := &config.Config{}
+	svc := NewBillingCacheService(billingCache, nil, nil, nil, rpmCache, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	user := &User{ID: 1, RPMLimit: 10}
+	group := &Group{ID: 10, RPMLimit: 10}
+
+	require.NoError(t, svc.CheckBillingEligibilityWithoutRPM(context.Background(), user, nil, group, nil, ""))
+	require.EqualValues(t, 0, atomic.LoadInt32(&rpmCache.userGroupCalls))
+	require.EqualValues(t, 0, atomic.LoadInt32(&rpmCache.userCalls))
+
+	require.NoError(t, svc.CheckBillingEligibility(context.Background(), user, nil, group, nil, ""))
+	require.EqualValues(t, 1, atomic.LoadInt32(&rpmCache.userGroupCalls))
+	require.EqualValues(t, 1, atomic.LoadInt32(&rpmCache.userCalls))
+}
+
+func TestBillingCacheService_CheckBillingEligibilityWithoutRPMStillChecksBalance(t *testing.T) {
+	billingCache := &balanceEligibilityCacheStub{balance: 0}
+	rpmCache := &userRPMCacheStub{}
+	cfg := &config.Config{}
+	svc := NewBillingCacheService(billingCache, nil, nil, nil, rpmCache, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	err := svc.CheckBillingEligibilityWithoutRPM(
+		context.Background(),
+		&User{ID: 1, RPMLimit: 10},
+		nil,
+		&Group{ID: 10, RPMLimit: 10},
+		nil,
+		"",
+	)
+
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.EqualValues(t, 0, atomic.LoadInt32(&rpmCache.userGroupCalls))
+	require.EqualValues(t, 0, atomic.LoadInt32(&rpmCache.userCalls))
+}
+
 func TestBillingCacheService_CheckRPM_OverrideTakesPrecedenceOverGroup(t *testing.T) {
 	override := 2
 	// user-group 计数: 1, 2, 3；user 计数: 默认返回 1（远小于 RPMLimit=100，不干扰）

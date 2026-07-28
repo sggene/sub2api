@@ -150,7 +150,11 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		defer userReleaseFunc()
 	}
 
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	checkBillingEligibility := h.billingCacheService.CheckBillingEligibility
+	if !shouldCountGrokMediaRPM(endpoint) {
+		checkBillingEligibility = h.billingCacheService.CheckBillingEligibilityWithoutRPM
+	}
+	if err := checkBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
 		reqLog.Info("grok_media.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -413,6 +417,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		)
 		return
 	}
+}
+
+func shouldCountGrokMediaRPM(endpoint service.GrokMediaEndpoint) bool {
+	return !endpoint.IsVideoLookupRequest()
 }
 
 func (h *OpenAIGatewayHandler) ensureGrokMediaAccountEligibility(ctx context.Context, account *service.Account) (bool, string, error) {

@@ -73,6 +73,24 @@ func TestShouldRecordGrokMediaUsage(t *testing.T) {
 	}
 }
 
+func TestShouldCountGrokMediaRPM(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint service.GrokMediaEndpoint
+		want     bool
+	}{
+		{name: "video generation counts RPM", endpoint: service.GrokMediaEndpointVideosGenerations, want: true},
+		{name: "video status skips RPM", endpoint: service.GrokMediaEndpointVideoStatus, want: false},
+		{name: "video content skips RPM", endpoint: service.GrokMediaEndpointVideoContent, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shouldCountGrokMediaRPM(tt.endpoint))
+		})
+	}
+}
+
 func TestGrokMediaRequiredCapability(t *testing.T) {
 	tests := []struct {
 		name     string
