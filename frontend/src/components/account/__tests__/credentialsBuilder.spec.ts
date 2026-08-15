@@ -3,7 +3,9 @@ import {
   ANTIGRAVITY_PROJECT_ID_CREDENTIAL_KEY,
   HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
+  GROK_VIDEO_UPSTREAM_STYLE_CREDENTIAL_KEY,
   applyAntigravityProjectID,
+  applyGrokVideoUpstreamStyle,
   applyHeaderOverride,
   applyInterceptWarmup,
   applyPlanType,
@@ -12,6 +14,7 @@ import {
   isCustomGrokBaseUrl,
   isHeaderOverrideCapable,
   GROK_BASE_URL_PRESETS,
+  normalizeGrokVideoUpstreamStyle,
   parseHeaderOverridesJson,
   planTypeDisplayLabel,
   readPlanType,
@@ -19,6 +22,23 @@ import {
   splitHeaderOverridesObject,
   validateHeaderOverrideRows
 } from '../credentialsBuilder'
+
+describe('Grok video upstream style', () => {
+  it('defaults missing and unsupported values to xai', () => {
+    expect(normalizeGrokVideoUpstreamStyle(undefined)).toBe('xai')
+    expect(normalizeGrokVideoUpstreamStyle('legacy')).toBe('xai')
+    expect(normalizeGrokVideoUpstreamStyle('xai')).toBe('xai')
+  })
+
+  it('writes the selected task-style protocol to credentials', () => {
+    const credentials: Record<string, unknown> = { api_key: 'xai-test' }
+
+    applyGrokVideoUpstreamStyle(credentials, 'task_videos')
+
+    expect(credentials[GROK_VIDEO_UPSTREAM_STYLE_CREDENTIAL_KEY]).toBe('task_videos')
+    expect(credentials.api_key).toBe('xai-test')
+  })
+})
 
 describe('applyInterceptWarmup', () => {
   it('create + enabled=true: should set intercept_warmup_requests to true', () => {
@@ -468,4 +488,3 @@ describe('plan_type helpers', () => {
     })
   })
 })
-

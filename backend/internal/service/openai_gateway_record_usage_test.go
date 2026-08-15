@@ -2207,6 +2207,29 @@ func TestGrokVideoBillingUsesSeparateVideoRateMultiplier(t *testing.T) {
 	require.Equal(t, 1, *usageRepo.lastLog.VideoDurationSeconds)
 }
 
+func TestGrokVideoUsageDetectionUsesParsedVideoCount(t *testing.T) {
+	for _, model := range []string{
+		"grok-video-3",
+		"grok-1.5-video-6s",
+		"grok-1.5-video-10s",
+		"grok-1.5-video-15s",
+		"channel-mapped-video-alias",
+	} {
+		t.Run(model, func(t *testing.T) {
+			require.True(t, isGrokVideoUsageResult(&OpenAIForwardResult{
+				Model:      model,
+				VideoCount: 1,
+			}, nil))
+		})
+	}
+
+	require.False(t, isGrokVideoUsageResult(nil, nil))
+	require.False(t, isGrokVideoUsageResult(&OpenAIForwardResult{
+		Model:      "grok-imagine-video-1.5",
+		VideoCount: 0,
+	}, nil))
+}
+
 func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesDefaultRateCard(t *testing.T) {
 	groupID := int64(1261)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}

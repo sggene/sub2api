@@ -89,6 +89,8 @@ const (
 	defaultGrokVideoTestPrompt   = "A red ball bouncing once on a white floor, short simple motion."
 	defaultGrokSearchTestQuery   = "xAI Grok"
 	defaultGrokTTSTestText       = "Hello from Sub2API account connectivity test."
+	grokTaskVideosProbeRequestID = "sub2api-connectivity-probe"
+	grokTaskVideosDefaultModel   = "grok-video-3"
 
 	// Grok account-test modes (admin UI). Empty / default / text = Responses probe.
 	// image/video may also be inferred from model_id when mode is default.
@@ -818,6 +820,16 @@ func (s *AccountTestService) testGrokAccountConnection(c *gin.Context, account *
 	if err != nil {
 		return s.sendErrorAndEnd(c, err.Error())
 	}
+	if account.UsesTaskVideosUpstream() {
+		testModelID := strings.TrimSpace(modelID)
+		if testModelID == "" {
+			testModelID = grokTaskVideosDefaultModel
+		}
+		if mapped := grokMediaMappedModel(account, testModelID); mapped != "" {
+			testModelID = mapped
+		}
+		return s.testGrokTaskVideosAccountConnection(c, account, authToken, testModelID)
+	}
 
 	// Explicit standalone / media modes always win over model id.
 	switch mode {
@@ -922,6 +934,59 @@ func (s *AccountTestService) grokTestAccessToken(ctx context.Context, account *A
 	default:
 		return "", fmt.Errorf("unsupported grok account type: %s", account.Type)
 	}
+}
+
+// testGrokTaskVideosAccountConnection verifies credentials without creating a
+// billable video task. A synthetic status lookup is enough to prove that the
+// configured upstream is reachable and understands the task-video route.
+func (s *AccountTestService) testGrokTaskVideosAccountConnection(
+	c *gin.Context,
+	account *Account,
+	authToken string,
+	testModelID string,
+) error {
+	probeURL, err := buildGrokMediaURL(
+		account,
+		s.cfg,
+		GrokMediaEndpointVideoStatus,
+		grokTaskVideosProbeRequestID,
+	)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid Grok video base URL: %s", err.Error()))
+	}
+
+	s.prepareGrokTestSSE(c)
+	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
+
+	probeCtx := WithHTTPUpstreamRedirectsDisabled(c.Request.Context())
+	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, probeURL, nil)
+	if err != nil {
+		return s.sendErrorAndEnd(c, "Failed to create Grok video connectivity probe")
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", grokMediaAuthorizationValue(account, GrokMediaEndpointVideoStatus, authToken))
+	account.ApplyHeaderOverrides(req.Header)
+
+	resp, err := s.httpUpstream.Do(req, s.grokTestProxyURL(account), account.ID, account.Concurrency)
+	if err != nil {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Grok video connectivity probe failed: %s", err.Error()))
+	}
+	if resp == nil {
+		return s.sendErrorAndEnd(c, "Grok video connectivity probe returned no response")
+	}
+	if resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Grok video connectivity probe authentication failed (%d)", resp.StatusCode))
+	}
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return s.sendErrorAndEnd(c, fmt.Sprintf("Grok video connectivity probe returned %d", resp.StatusCode))
+	}
+
+	s.sendEvent(c, TestEvent{Type: "test_complete", Success: true})
+	return nil
 }
 
 func (s *AccountTestService) grokTestProxyURL(account *Account) string {

@@ -370,6 +370,14 @@ func TestDefaultModelMappingIncludesGrokAliases(t *testing.T) {
 	require.Equal(t, DefaultImagineVideoModel, mapping["grok-imagine-video"])
 	require.Equal(t, DefaultImagineVideo15LegacyModel, mapping["grok-imagine-video-1.5"])
 	require.Equal(t, DefaultImagineVideo15Model, mapping["grok-imagine-video-1.5-preview"])
+	for _, model := range []string{
+		"grok-video-3",
+		"grok-1.5-video-6s",
+		"grok-1.5-video-10s",
+		"grok-1.5-video-15s",
+	} {
+		require.Equal(t, model, mapping[model])
+	}
 	_, hasGPT := mapping["gpt-*"]
 	require.False(t, hasGPT, "cross-client wildcards must be opt-in")
 }

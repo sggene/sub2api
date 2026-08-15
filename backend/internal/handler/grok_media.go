@@ -284,7 +284,11 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 
 		account := selection.Account
 		if endpoint.IsGenerationRequest() {
-			eligible, eligibilityReason, eligibilityErr := h.ensureGrokMediaAccountEligibility(requestCtx, account)
+			eligible, eligibilityReason := service.GrokMediaAccountSupportsRequest(account, endpoint, routingModel)
+			var eligibilityErr error
+			if eligible {
+				eligible, eligibilityReason, eligibilityErr = h.ensureGrokMediaAccountEligibility(requestCtx, account)
+			}
 			if !eligible {
 				mediaEligibilityRejected = true
 				failedAccountIDs[account.ID] = struct{}{}
@@ -671,7 +675,7 @@ func recordGrokMediaUsage(
 		payloadForHash = []byte(requestID)
 	}
 	inboundEndpoint := GetInboundEndpoint(c)
-	upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+	upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, result)
 	quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 	// OriginalModel 记录客户端请求的模型：composite 分组下 body 已被改写为具体模型，
 	// 公开别名需从 context 取回，与其他端点的用量归因口径一致（计费不受影响：

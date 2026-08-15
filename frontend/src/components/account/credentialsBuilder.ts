@@ -197,6 +197,22 @@ export function serializeHeaderOverrideRows(rows: HeaderOverrideRow[]): string {
   return JSON.stringify(record, null, 2)
 }
 
+// ========== Grok 视频上游协议 ==========
+
+export const GROK_VIDEO_UPSTREAM_STYLE_CREDENTIAL_KEY = 'grok_video_upstream_style'
+export type GrokVideoUpstreamStyle = 'xai' | 'task_videos'
+
+export function normalizeGrokVideoUpstreamStyle(value: unknown): GrokVideoUpstreamStyle {
+  return value === 'task_videos' ? 'task_videos' : 'xai'
+}
+
+export function applyGrokVideoUpstreamStyle(
+  credentials: Record<string, unknown>,
+  style: GrokVideoUpstreamStyle
+): void {
+  credentials[GROK_VIDEO_UPSTREAM_STYLE_CREDENTIAL_KEY] = normalizeGrokVideoUpstreamStyle(style)
+}
+
 // ========== Grok 自定义转发地址（base_url 仅改写转发端点，凭证生命周期不受影响） ==========
 
 /** OAuth 账号建号/刷新默认写入的 CLI 网关 host——只有它视同"未定制"。 */

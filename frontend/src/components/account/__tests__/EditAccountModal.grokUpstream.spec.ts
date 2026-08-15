@@ -95,6 +95,19 @@ function buildGrokOAuthAccount(
   } as any
 }
 
+function buildGrokAPIKeyAccount(credentials: Record<string, unknown> = {}) {
+  return {
+    ...buildGrokOAuthAccount(),
+    name: 'Grok API Key',
+    type: 'apikey',
+    credentials: {
+      base_url: 'https://api.x.ai/v1',
+      ...credentials
+    },
+    credentials_status: { has_api_key: true }
+  } as any
+}
+
 function mountModal(account: any) {
   return mount(EditAccountModal, {
     props: {
@@ -322,5 +335,58 @@ describe('EditAccountModal Grok OAuth upstream config', () => {
     expect(
       wrapper.get('[data-testid="grok-client-tool-cache-toggle"]').attributes('aria-checked')
     ).toBe('false')
+  })
+})
+
+describe('EditAccountModal Grok video upstream style', () => {
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+  })
+
+  it('shows xAI native for an old account without the field and saves it explicitly', async () => {
+    const account = buildGrokAPIKeyAccount()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const select = wrapper.get('[data-testid="edit-grok-video-upstream-style"]')
+    expect((select.element as HTMLSelectElement).value).toBe('xai')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
+
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.credentials?.grok_video_upstream_style).toBe('xai')
+  })
+
+  it('loads and preserves a stored task-style compatible selection', async () => {
+    const account = buildGrokAPIKeyAccount({ grok_video_upstream_style: 'task_videos' })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+    const select = wrapper.get('[data-testid="edit-grok-video-upstream-style"]')
+    expect((select.element as HTMLSelectElement).value).toBe('task_videos')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
+
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.credentials?.grok_video_upstream_style).toBe('task_videos')
+  })
+
+  it('does not show the selector for Grok OAuth or another platform API key account', () => {
+    const grokOAuthWrapper = mountModal(buildGrokOAuthAccount())
+    expect(grokOAuthWrapper.find('[data-testid="edit-grok-video-upstream-style"]').exists()).toBe(
+      false
+    )
+
+    const openAIAPIKeyWrapper = mountModal({
+      ...buildGrokAPIKeyAccount(),
+      platform: 'openai'
+    })
+    expect(
+      openAIAPIKeyWrapper.find('[data-testid="edit-grok-video-upstream-style"]').exists()
+    ).toBe(false)
   })
 })

@@ -770,6 +770,14 @@ export default {
           official: 'Official API'
         }
       },
+      grokVideoUpstreamStyle: {
+        title: 'Grok Video API Mode',
+        hint: 'Compatible mode sends Authorization without Bearer and applies only to video generation and task lookup.',
+        options: {
+          xai: 'xAI Native (/v1/videos/generations)',
+          taskVideos: 'Compatible (/v1/videos)'
+        }
+      },
       grokClientToolCache: {
         title: 'Client Tool Cache (May Change Automatic Tool Selection)',
         hint: 'For detected Grok Free OAuth accounts, this is enabled by default for client function tools such as Codex and Trae. Turn it off to opt out if the automatic tool-selection behavior is not acceptable.'

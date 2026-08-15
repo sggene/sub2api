@@ -111,6 +111,27 @@ async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: 
   await button?.trigger('click')
 }
 
+async function openGrokApiKeyForm() {
+  const wrapper = mountModal()
+  await selectButtonByText(wrapper, 'Grok')
+  expect(wrapper.find('[data-testid="create-grok-video-upstream-style"]').exists()).toBe(false)
+  await wrapper.get('[data-testid="grok-account-type-api-key"]').trigger('click')
+  return wrapper
+}
+
+async function submitGrokApiKeyAccount(style?: 'xai' | 'task_videos') {
+  const wrapper = await openGrokApiKeyForm()
+  const styleSelect = wrapper.get('[data-testid="create-grok-video-upstream-style"]')
+  if (style) {
+    await styleSelect.setValue(style)
+  }
+  await wrapper.get('form#create-account-form input[type="text"]').setValue('Grok video account')
+  await wrapper.get('form#create-account-form input[type="password"]').setValue('xai-test-key')
+  await wrapper.get('form#create-account-form').trigger('submit.prevent')
+  await flushPromises()
+  return wrapper
+}
+
 async function submitApiKeyAccount(
   platform: 'openai' | 'anthropic',
   enableLongContextBilling = false,
@@ -337,5 +358,34 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createOpenAICodexPATMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(false)
+  })
+})
+
+describe('CreateAccountModal Grok video upstream style', () => {
+  beforeEach(() => {
+    createAccountMock.mockReset().mockResolvedValue({ id: 43, platform: 'grok', type: 'apikey' })
+    probeUpstreamBillingMock.mockReset()
+  })
+
+  it('defaults to xAI native and saves the explicit xai credential value', async () => {
+    const wrapper = await submitGrokApiKeyAccount()
+
+    expect(
+      (wrapper.get('[data-testid="create-grok-video-upstream-style"]').element as HTMLSelectElement)
+        .value
+    ).toBe('xai')
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.grok_video_upstream_style).toBe(
+      'xai'
+    )
+  })
+
+  it('saves the task-style compatible selection', async () => {
+    await submitGrokApiKeyAccount('task_videos')
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.grok_video_upstream_style).toBe(
+      'task_videos'
+    )
   })
 })

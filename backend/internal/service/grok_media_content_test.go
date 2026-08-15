@@ -280,7 +280,12 @@ func TestGrokMediaSignedVideoContentURLRejectsDeceptiveOrigins(t *testing.T) {
 		"http://vidgen.x.ai/video.mp4",
 	} {
 		t.Run(rawURL, func(t *testing.T) {
-			_, err := grokMediaSignedVideoContentURL([]byte(`{"video":{"url":"`+rawURL+`"}}`), "task-1")
+			_, err := grokMediaSignedVideoContentURL(
+				[]byte(`{"video":{"url":"`+rawURL+`"}}`),
+				"task-1",
+				grokMediaContentTestAccount(),
+				&config.Config{},
+			)
 			require.ErrorContains(t, err, "unsupported video content URL")
 		})
 	}
@@ -290,6 +295,8 @@ func TestGrokMediaSignedVideoContentURLRejectsDifferentRelayTask(t *testing.T) {
 	_, err := grokMediaSignedVideoContentURL(
 		[]byte(`{"video":{"url":"/v1/videos/task-2/content"}}`),
 		"task-1",
+		grokMediaContentTestAccount(),
+		&config.Config{},
 	)
 
 	require.ErrorContains(t, err, "unsupported video content URL")
@@ -319,7 +326,7 @@ func TestForwardGrokVideoStatusRewritesOnlyProtectedContentURL(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "/v1/videos/task-1/content", gjson.Get(recorder.Body.String(), "url").String())
 	require.Equal(t, "/v1/videos/task-1/content", gjson.Get(recorder.Body.String(), "download_url").String())
-	require.Equal(t, "https://vidgen.x.ai/task-1.mp4", gjson.Get(recorder.Body.String(), "video_url").String())
+	require.Equal(t, "/v1/videos/task-1/content", gjson.Get(recorder.Body.String(), "video_url").String())
 	require.Equal(t, "9007199254740993", gjson.Get(recorder.Body.String(), "counter").String())
 	require.NotContains(t, recorder.Body.String(), "malicious.invalid")
 }

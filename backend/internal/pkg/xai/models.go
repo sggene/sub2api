@@ -99,6 +99,11 @@ var defaultModels = []Model{
 	{ID: DefaultImagineVideoModel, Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok Imagine Video"},
 	{ID: DefaultImagineVideo15Model, Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok Imagine Video 1.5 Preview"},
 	{ID: DefaultImagineVideo15LegacyModel, Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok Imagine Video 1.5 Legacy"},
+	// Compatible task-video upstreams.
+	{ID: "grok-video-3", Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok Video 3"},
+	{ID: "grok-1.5-video-6s", Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok 1.5 Video 6s"},
+	{ID: "grok-1.5-video-10s", Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok 1.5 Video 10s"},
+	{ID: "grok-1.5-video-15s", Object: "model", Type: "model", OwnedBy: "xai", DisplayName: "Grok 1.5 Video 15s"},
 }
 
 // grokTextResponsesModelAliases is the source of truth for Grok text models

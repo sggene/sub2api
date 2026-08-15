@@ -78,6 +78,24 @@
           <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
         </div>
 
+        <div v-if="account.platform === 'grok'">
+          <label for="edit-grok-video-upstream-style" class="input-label">
+            {{ t('admin.accounts.grokVideoUpstreamStyle.title') }}
+          </label>
+          <select
+            id="edit-grok-video-upstream-style"
+            v-model="grokVideoUpstreamStyle"
+            class="input"
+            data-testid="edit-grok-video-upstream-style"
+          >
+            <option value="xai">{{ t('admin.accounts.grokVideoUpstreamStyle.options.xai') }}</option>
+            <option value="task_videos">
+              {{ t('admin.accounts.grokVideoUpstreamStyle.options.taskVideos') }}
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.grokVideoUpstreamStyle.hint') }}</p>
+        </div>
+
         <!-- Model Restriction Section (不适用于 Antigravity) -->
         <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
@@ -2768,6 +2786,7 @@ import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import OllamaCloudUsageSettings from '@/components/account/OllamaCloudUsageSettings.vue'
 import {
   applyAntigravityProjectID,
+  applyGrokVideoUpstreamStyle,
   applyHeaderOverride,
   applyInterceptWarmup,
   applyPlanType,
@@ -2775,10 +2794,12 @@ import {
   readPlanType,
   isCustomGrokBaseUrl,
   isHeaderOverrideCapable,
+  normalizeGrokVideoUpstreamStyle,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
   HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
+  type GrokVideoUpstreamStyle,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
@@ -2856,6 +2877,7 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editBaseUrl = ref('https://api.anthropic.com')
 const editApiKey = ref('')
+const grokVideoUpstreamStyle = ref<GrokVideoUpstreamStyle>('xai')
 // Bedrock credentials
 const editBedrockAccessKeyId = ref('')
 const editBedrockSecretAccessKey = ref('')
@@ -3430,6 +3452,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Load intercept warmup requests setting (applies to all account types)
   const credentials = newAccount.credentials as Record<string, unknown> | undefined
   interceptWarmupRequests.value = credentials?.intercept_warmup_requests === true
+  grokVideoUpstreamStyle.value =
+    newAccount.platform === 'grok' && newAccount.type === 'apikey'
+      ? normalizeGrokVideoUpstreamStyle(credentials?.grok_video_upstream_style)
+      : 'xai'
   autoPauseOnExpired.value = newAccount.auto_pause_on_expired === true
   errorWhitelistEnabled.value = newAccount.extra?.error_whitelist === true
   editVertexProjectId.value = ''
@@ -4331,6 +4357,9 @@ const handleSubmit = async () => {
       const newCredentials: Record<string, unknown> = {
         ...currentCredentials,
         base_url: newBaseUrl
+      }
+      if (props.account.platform === 'grok') {
+        applyGrokVideoUpstreamStyle(newCredentials, grokVideoUpstreamStyle.value)
       }
 
       // Handle API key

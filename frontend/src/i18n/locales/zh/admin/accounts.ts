@@ -834,6 +834,14 @@ export default {
           official: '官方 API'
         }
       },
+      grokVideoUpstreamStyle: {
+        title: 'Grok 视频接口模式',
+        hint: '兼容模式使用不带 Bearer 的 Authorization，仅用于视频生成与任务查询。',
+        options: {
+          xai: 'xAI 原生（/v1/videos/generations）',
+          taskVideos: '兼容模式（/v1/videos）'
+        }
+      },
       grokClientToolCache: {
         title: '客户端工具缓存（可能改变自动工具选择）',
         hint: '仅对已识别为 Free 的 Grok OAuth 账号生效，默认会为 Codex、Trae 等客户端函数工具请求启用上游提示缓存；如不接受自动工具选择行为，可关闭此开关退出。'

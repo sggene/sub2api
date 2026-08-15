@@ -1488,7 +1488,7 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	if a.IsGrok() {
 		switch capability {
 		case OpenAIEndpointCapabilityChatCompletions:
-			return true
+			return !a.UsesTaskVideosUpstream()
 		case OpenAIEndpointCapabilityGrokMediaGeneration:
 			eligible, reason := a.GrokMediaGenerationEligibility()
 			// Unobserved OAuth accounts remain scheduler candidates only so the

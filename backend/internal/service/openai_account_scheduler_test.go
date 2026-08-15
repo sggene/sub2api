@@ -838,6 +838,54 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_GrokMediaCapabilityFilt
 		require.NotNil(t, selection.Account)
 		require.Equal(t, ineligible.ID, selection.Account.ID)
 	})
+
+	t.Run("task video model selects compatible protocol account", func(t *testing.T) {
+		native := Account{
+			ID: 36053, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
+		}
+		taskVideos := Account{
+			ID: 36054, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+			Credentials: map[string]any{
+				GrokVideoUpstreamStyleCredentialKey: GrokVideoUpstreamStyleTaskVideos,
+			},
+		}
+		selection, _, err := newService([]Account{native, taskVideos}).SelectAccountWithSchedulerForCapability(
+			ctx, &groupID, "", "", "grok-video-3", nil,
+			OpenAIUpstreamTransportHTTPSSE, OpenAIEndpointCapabilityGrokMediaGeneration,
+			false, false, false, PlatformGrok,
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.NotNil(t, selection.Account)
+		require.Equal(t, taskVideos.ID, selection.Account.ID)
+	})
+
+	t.Run("native video model excludes compatible protocol account", func(t *testing.T) {
+		native := Account{
+			ID: 36055, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+		}
+		taskVideos := Account{
+			ID: 36056, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
+			Credentials: map[string]any{
+				GrokVideoUpstreamStyleCredentialKey: GrokVideoUpstreamStyleTaskVideos,
+			},
+		}
+		selection, _, err := newService([]Account{taskVideos, native}).SelectAccountWithSchedulerForCapability(
+			ctx, &groupID, "", "", "grok-imagine-video", nil,
+			OpenAIUpstreamTransportHTTPSSE, OpenAIEndpointCapabilityGrokMediaGeneration,
+			false, false, false, PlatformGrok,
+		)
+
+		require.NoError(t, err)
+		require.NotNil(t, selection)
+		require.NotNil(t, selection.Account)
+		require.Equal(t, native.ID, selection.Account.ID)
+	})
 }
 
 // Regression #4599: when the advanced scheduler's load-balance initial filter

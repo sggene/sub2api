@@ -1157,6 +1157,24 @@
           <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
         </div>
 
+        <div v-if="form.platform === 'grok'">
+          <label for="create-grok-video-upstream-style" class="input-label">
+            {{ t('admin.accounts.grokVideoUpstreamStyle.title') }}
+          </label>
+          <select
+            id="create-grok-video-upstream-style"
+            v-model="grokVideoUpstreamStyle"
+            class="input"
+            data-testid="create-grok-video-upstream-style"
+          >
+            <option value="xai">{{ t('admin.accounts.grokVideoUpstreamStyle.options.xai') }}</option>
+            <option value="task_videos">
+              {{ t('admin.accounts.grokVideoUpstreamStyle.options.taskVideos') }}
+            </option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.grokVideoUpstreamStyle.hint') }}</p>
+        </div>
+
         <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
         <div
           class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
@@ -3639,10 +3657,12 @@ import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import HeaderOverrideEditor from '@/components/account/HeaderOverrideEditor.vue'
 import {
   applyAntigravityProjectID,
+  applyGrokVideoUpstreamStyle,
   applyHeaderOverride,
   applyInterceptWarmup,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
+  type GrokVideoUpstreamStyle,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
@@ -3778,6 +3798,7 @@ const accountCategory = ref<'oauth-based' | 'apikey' | 'bedrock' | 'service_acco
 const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-token'
 const apiKeyBaseUrl = ref('https://api.anthropic.com')
 const apiKeyValue = ref('')
+const grokVideoUpstreamStyle = ref<GrokVideoUpstreamStyle>('xai')
 const upstreamBillingAutoProbeEnabled = ref(true)
 
 const syncPreviewCredentials = computed(() => {
@@ -4287,6 +4308,7 @@ watch(
     // Clear model-related settings
     allowedModels.value = []
     modelMappings.value = []
+    grokVideoUpstreamStyle.value = 'xai'
     // Antigravity: 默认使用映射模式并填充默认映射
     if (newPlatform === 'antigravity') {
       antigravityModelRestrictionMode.value = 'mapping'
@@ -4733,6 +4755,7 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
   apiKeyValue.value = ''
+  grokVideoUpstreamStyle.value = 'xai'
   upstreamBillingAutoProbeEnabled.value = true
   editQuotaLimit.value = null
   editQuotaDailyLimit.value = null
@@ -5192,6 +5215,9 @@ const handleSubmit = async () => {
   }
   if (form.platform === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
+  }
+  if (form.platform === 'grok') {
+    applyGrokVideoUpstreamStyle(credentials, grokVideoUpstreamStyle.value)
   }
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）

@@ -54,6 +54,17 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('grok-imagine-video-1.5-preview')
   })
 
+  it('xAI 模型列表包含任务式视频上游模型', () => {
+    const models = getModelsByPlatform('grok')
+
+    expect(models).toEqual(expect.arrayContaining([
+      'grok-video-3',
+      'grok-1.5-video-6s',
+      'grok-1.5-video-10s',
+      'grok-1.5-video-15s'
+    ]))
+  })
+
   it('combined 模式支持 Grok 4.5 官方别名映射', () => {
     const mapping = buildModelMappingObject(
       'combined',

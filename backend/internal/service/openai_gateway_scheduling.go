@@ -358,6 +358,12 @@ func isOpenAICompatibleAccountEligibleForRequestBeforeProfit(ctx context.Context
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
 		return false
 	}
+	if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
+		if supported, reason := GrokMediaAccountSupportsRoutingModel(account, requestedModel); !supported {
+			slog.Debug("grok_media_account_protocol_ineligible", "account_id", account.ID, "reason", reason)
+			return false
+		}
+	}
 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
 		if account.IsGrok() && requiredCapability == OpenAIEndpointCapabilityGrokMediaGeneration {
 			_, reason := account.GrokMediaGenerationEligibility()

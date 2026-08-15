@@ -28,6 +28,27 @@ type grokAccountTestRateLimitRepo struct {
 	resetAt          time.Time
 }
 
+func grokTaskVideosAccountForConnectionTest(id int64) *Account {
+	return &Account{
+		ID:          id,
+		Name:        "grok-task-videos",
+		Platform:    PlatformGrok,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 2,
+		Credentials: map[string]any{
+			"api_key":                           "sk-task-upstream",
+			"base_url":                          "https://relay.example/v1",
+			GrokVideoUpstreamStyleCredentialKey: GrokVideoUpstreamStyleTaskVideos,
+			credKeyHeaderOverrideEnabled:        true,
+			credKeyHeaderOverrides: map[string]any{
+				"user-agent": "account-override",
+			},
+		},
+	}
+}
+
 func TestObserveGrokTestResponseClassifiesBodyOnlyQuotaErrors(t *testing.T) {
 	account := &Account{ID: 1901, Platform: PlatformGrok, Type: AccountTypeOAuth}
 	repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
@@ -186,6 +207,100 @@ func TestAccountTestService_TestAccountConnection_GrokDefaultsEmptyModelTo45(t *
 	require.NoError(t, err)
 	require.Equal(t, grokDefaultResponsesModel, gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Contains(t, recorder.Body.String(), `"model":"grok-4.5"`)
+}
+
+func TestAccountTestService_TaskVideosUsesNonBillableConnectivityProbe(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, tt := range []struct {
+		name   string
+		status int
+	}{
+		{name: "ok", status: http.StatusOK},
+		{name: "no content", status: http.StatusNoContent},
+		{name: "bad request", status: http.StatusBadRequest},
+		{name: "not found", status: http.StatusNotFound},
+		{name: "method not allowed", status: http.StatusMethodNotAllowed},
+		{name: "rate limited", status: http.StatusTooManyRequests},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			account := grokTaskVideosAccountForConnectionTest(17)
+			repo := &mockAccountRepoForGemini{accountsByID: map[int64]*Account{account.ID: account}}
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: tt.status,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"status":"not_found"}`)),
+			}}
+			svc := &AccountTestService{accountRepo: repo, httpUpstream: upstream}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/17/test", nil)
+
+			err := svc.TestAccountConnection(c, account.ID, "", "", AccountTestModeDefault)
+
+			require.NoError(t, err)
+			require.Equal(t, http.MethodGet, upstream.lastReq.Method)
+			require.Equal(t, "https://relay.example/v1/videos/sub2api-connectivity-probe", upstream.lastReq.URL.String())
+			require.Equal(t, "sk-task-upstream", upstream.lastReq.Header.Get("Authorization"))
+			require.Equal(t, "account-override", upstream.lastReq.Header.Get("User-Agent"))
+			require.Empty(t, upstream.lastReq.Header.Get("Content-Type"))
+			require.Empty(t, upstream.lastBody)
+			require.True(t, HTTPUpstreamRedirectsDisabled(upstream.lastReq.Context()))
+			require.Contains(t, recorder.Body.String(), `"type":"test_start"`)
+			require.Contains(t, recorder.Body.String(), `"model":"grok-video-3"`)
+			require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
+			require.NotContains(t, recorder.Body.String(), `"type":"error"`)
+		})
+	}
+}
+
+func TestAccountTestService_TaskVideosConnectivityProbeRejectsAuthAndServerErrors(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, tt := range []struct {
+		name   string
+		status int
+	}{
+		{name: "unauthorized", status: http.StatusUnauthorized},
+		{name: "forbidden", status: http.StatusForbidden},
+		{name: "server error", status: http.StatusInternalServerError},
+		{name: "bad gateway", status: http.StatusBadGateway},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			account := grokTaskVideosAccountForConnectionTest(18)
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: tt.status,
+				Body:       io.NopCloser(strings.NewReader(`{"error":"probe failed"}`)),
+			}}
+			svc := &AccountTestService{httpUpstream: upstream}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/18/test", nil)
+
+			err := svc.testGrokAccountConnection(c, account, "grok-video-3", "", AccountTestModeDefault, AccountTestOptions{})
+
+			require.Error(t, err)
+			require.Contains(t, recorder.Body.String(), `"type":"error"`)
+			require.NotContains(t, recorder.Body.String(), `"type":"test_complete"`)
+		})
+	}
+}
+
+func TestAccountTestService_TaskVideosConnectivityProbeRejectsNetworkFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	account := grokTaskVideosAccountForConnectionTest(19)
+	upstream := &httpUpstreamRecorder{err: errors.New("dial failed")}
+	svc := &AccountTestService{httpUpstream: upstream}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/19/test", nil)
+
+	err := svc.testGrokAccountConnection(c, account, "grok-video-3", "", AccountTestModeDefault, AccountTestOptions{})
+
+	require.ErrorContains(t, err, "Grok video connectivity probe failed")
+	require.Contains(t, recorder.Body.String(), `"type":"error"`)
+	require.NotContains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
 func TestAccountTestService_Grok429PersistsRateLimitReset(t *testing.T) {

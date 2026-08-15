@@ -159,7 +159,11 @@ const xaiModels = [
   'grok-imagine-image',
   'grok-imagine-video',
   'grok-imagine-video-1.5-preview',
-  'grok-imagine-video-1.5'
+  'grok-imagine-video-1.5',
+  'grok-video-3',
+  'grok-1.5-video-6s',
+  'grok-1.5-video-10s',
+  'grok-1.5-video-15s'
 ]
 
 // Cohere
