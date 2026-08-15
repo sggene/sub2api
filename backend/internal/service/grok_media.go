@@ -565,11 +565,6 @@ func grokVideoStatusContentURL(statusBody []byte, account *Account) string {
 	return ""
 }
 
-func isOfficialGrokVideoStatusDone(statusBody []byte) bool {
-	// Official enum: pending | done | expired | failed.
-	return strings.EqualFold(strings.TrimSpace(gjson.GetBytes(statusBody, "status").String()), "done")
-}
-
 // ExtractGrokVideoBillingFromStatusBody builds usage units from an official done status.
 // Field priority (official docs):
 //   - duration: video.duration (seconds)
